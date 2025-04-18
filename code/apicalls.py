@@ -1,9 +1,23 @@
+curl -X 'GET' \
+  'https://cent.ischool-iot.net/api/google/geocode?location=Syracuse%2C%20NY' \
+  -H 'accept: application/json' \
+  -H 'X-API-KEY: 31808209eea7171b1f014836'
+
+
 import requests
 
 # Put your CENT Ischool IoT Portal API KEY here.
-APIKEY = "APIKEYHERE"
+APIKEY = "API31808209eea7171b1f014836"
 
-def get_google_place_details(google_place_id: str) -> dict:
+# Define the functions that will call the APIs
+def get_google_place_details(ChIJDZqXv5vz2YkRRZWt1-IM1QA: str) -> dict:
+    header = {'X-API-KEY: 31808209eea7171b1f014836'}
+    par = {'place_id: ChIJDZqXv5vz2YkRRZWt1-IM1QA'}
+    url = "https://cent.ischool-iot.net/api/google/places/details"
+    response = requests.get(url, headers=header, par=par)
+    response.raise_for_status()
+    return response.json() 
+
     pass # Implement this function
     
 def get_azure_sentiment(text: str) -> dict:
