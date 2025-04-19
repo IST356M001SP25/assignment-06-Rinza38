@@ -9,19 +9,23 @@ import requests
 # Put your CENT Ischool IoT Portal API KEY here.
 APIKEY = "API31808209eea7171b1f014836"
 
-# Define the functions that will call the APIs
+# Define the get_google functions that will call the APIs
 def get_google_place_details(ChIJDZqXv5vz2YkRRZWt1-IM1QA: str) -> dict:
     header = {'X-API-KEY: 31808209eea7171b1f014836'}
     par = {'place_id: ChIJDZqXv5vz2YkRRZWt1-IM1QA'}
     url = "https://cent.ischool-iot.net/api/google/places/details"
     response = requests.get(url, headers=header, par=par)
-    response.raise_for_status()
+    response.raise_for_status() 
     return response.json() 
 
-    pass # Implement this function
-    
+# Define the Azure functions that will call the APIs   
 def get_azure_sentiment(text: str) -> dict:
-    pass # Implement this function
+    header = {'X-API-KEY: 31808209eea7171b1f014836'}
+    data = {'text' : text}
+    url = "https://cent.ischool-iot.net/api/azure/sentiment"
+    response = request.post(url, headers=header, data=data)
+    response.raise_for_status()
+    return response.json()
 
 def get_azure_key_phrase_extraction(text: str) -> dict:
     pass # Implement this function
