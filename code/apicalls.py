@@ -4,7 +4,7 @@ import requests
 APIKEY = "API31808209eea7171b1f014836"
 
 # Define the get_google functions that will call the APIs
-def get_google_place_details(ChIJDZqXv5vz2YkRRZWt1-IM1QA: str) -> dict:
+def get_google_place_details(ChIJDZqXv5vz2YkRRZWt1IM1QA: str) -> dict:
     header = {'X-API-KEY: 31808209eea7171b1f014836'}
     par = {'place_id: ChIJDZqXv5vz2YkRRZWt1-IM1QA'}
     url = "https://cent.ischool-iot.net/api/google/places/details"
