@@ -19,105 +19,125 @@ def reviews_step(place_ids: str|pd.DataFrame) -> pd.DataFrame:
     '''
       1. place_ids --> reviews_step --> reviews: place_id, name (of place), author_name, rating, text 
     '''
-    # 1. if strong, then it's filename loads into dataframe
+    # if string, then its a filename so load into dataframe
     if isinstance(place_ids, str):
         place_ids_df = pd.read_csv(place_ids)
-    else: 
+    else:
         place_ids_df = place_ids
 
-    # Google Places API returns nested 'result' with 'reviews' array
-    all_reviews = []
-    for _, row in place_ids_df.iterrows():
-        response = get_google_place_details(row['place_id'])
-        
-        # Coding for missing API data
-        if 'result' not in response: continue
-        
-        # Merging parent data (place_id/name) with child records (reviews)
-        place_name = response['result'].get('name','')
-        for review in response['result'].get('reviews',[]):
-            review['place_id'] = row['place_id']  # Add parent ID
-            review['name'] = place_name           # Add place name
-            all_reviews.append(review)
+    # TRANSFORMATIONS
 
-    # json_normalize for nested JSON -> DataFrame conversion
-    df = json_normalize(all_reviews) if all_reviews else pd.DataFrame()
-    
-    # Column validation/standardization
-    required_cols = ['place_id','name','author_name','rating','text']
-    for col in required_cols:                      # Ensure expected columns exist
-        if col not in df.columns: df[col] = None
-    
-    df[required_cols].to_csv(CACHE_REVIEWS_FILE, index=False)
-    return df
+    # get google place details for each place_id
+    google_places = []
+    for index, row in place_ids_df.iterrows():
+        place = get_google_place_details(row['place_id'])
+        google_places.append(place['result'])
 
+    # construct dataframe at the reviews level, include place_id, name from parent level
+    reviews_df = pd.json_normalize(google_places, record_path="reviews", meta=["place_id", 'name'])
+
+    # pair down to the columns we want
+    reviews_df = reviews_df[['place_id', 'name', 'author_name', 'rating', 'text']]
+
+    # save to cache, return dataframe
+    reviews_df.to_csv(CACHE_REVIEWS_FILE, index=False, header=True)
+    return reviews_df
 
 
 def sentiment_step(reviews: str|pd.DataFrame) -> pd.DataFrame:
     '''
       2. reviews --> sentiment_step --> review_sentiment_by_sentence
     '''
-    reviews_df = pd.read_csv(reviews) if isinstance(reviews, str) else reviews
+    # if string, then its a filename so load into dataframe
+    if isinstance(reviews, str):
+        reviews_df = pd.read_csv(reviews)
+    else:
+        reviews_df = reviews
 
-    all_sentences = []
-    for _, review in reviews_df.iterrows():
-        # Batch API processing pattern
-        response = get_azure_sentiment(review['text'])
-        
-        # Azure response structure handling
-        # Documents[0].sentences contains per-sentence analysis
-        if not response.get('documents'): continue
-        
-        for sentence in response['documents'][0]['sentences']:
-            # Preserving context from parent record
-            sentence_data = {
-                'place_id': review['place_id'],
-                'name': review['name'],
-                # ... other parent fields ...
-                'sentence_text': sentence['text'],
-                # Flattening nested confidence scores
-                'confidenceScores.positive': sentence['confidenceScores']['positive']
-            }
-            all_sentences.append(sentence_data)
+    # TRANSFORMATIONS
 
-    # Building new DataFrame with normalized structure
-    df = pd.DataFrame(all_sentences)
-    df.to_csv(CACHE_SENTIMENT_FILE, index=False)
-    return df
+    # get sentiment for each review
+    sentiments = []
+    for index, row in reviews_df.iterrows():
+        sentiment = get_azure_sentiment(row['text'])
+        sentiment_item = sentiment['results']['documents'][0]
+        sentiment_item['place_id'] = row['place_id']
+        sentiment_item['name'] = row['name']
+        sentiment_item['author_name'] = row['author_name']
+        sentiment_item['rating'] = row['rating']
+        sentiments.append(sentiment_item)
+
+    # construct dataframe at the sentence level, include place_id, name from parent level
+    sentiment_df = pd.json_normalize(sentiments, record_path="sentences", 
+                                   meta=["place_id", 'name', 'author_name', 'rating'])
+    
+    # rename columns
+    sentiment_df.rename(columns={
+        'text': 'sentence_text',
+        'sentiment': 'sentence_sentiment'
+    }, inplace=True)
+
+    # filter output columns
+    sentiment_df = sentiment_df[['place_id', 'name', 'author_name', 'rating', 
+                               'sentence_text', 'sentence_sentiment', 
+                               'confidenceScores.positive', 'confidenceScores.neutral', 
+                               'confidenceScores.negative']]
+
+    # save to cache, return dataframe
+    sentiment_df.to_csv(CACHE_SENTIMENT_FILE, index=False, header=True)
+    return sentiment_df
 
 
 def entity_extraction_step(sentiment: str|pd.DataFrame) -> pd.DataFrame:
     '''
       3. review_sentiment_by_sentence --> entity_extraction_step --> review_sentiment_entities_by_sentence
     '''
-    # Input now contains sentiment data from previous step
-    sentiment_df = pd.read_csv(sentiment) if isinstance(sentiment, str) else sentiment
+    # if string, then its a filename so load into dataframe
+    if isinstance(sentiment, str):
+        sentiment_df = pd.read_csv(sentiment)
+    else:
+        sentiment_df = sentiment
 
-    all_entities = []
-    for _, sentence_row in sentiment_df.iterrows():
-        # Entity extraction at sentence granularity
-        response = get_azure_named_entity_recognition(sentence_row['sentence_text'])
-        
-        # Handling entity-relationship data
-        for entity in response.get('documents', [{}])[0].get('entities', []):
-            entity_data = {
-                # Carrying forward ALL parent data
-                **sentence_row.to_dict(),  # All sentiment/place data
-                # Entity-specific fields
-                'entity_text': entity['text'],
-                'entity_category': entity['category'],
-                # Handling optional subcategory field
-                'entity_subCategory': entity.get('subCategory', None)
-            }
-            all_entities.append(entity_data)
+    # TRANSFORMATIONS
 
-    # Final structured output for analysis
-    df = pd.DataFrame(all_entities)
-    df.to_csv(CACHE_ENTITIES_FILE, index=False)
-    return df
+    # get entities for each sentence
+    entities = []
+    for index, row in sentiment_df.iterrows():
+        entity = get_azure_named_entity_recognition(row['sentence_text'])
+        entity_item = entity['results']['documents'][0]
+        for col in sentiment_df.columns:
+            entity_item[col] = row[col]    
+        entities.append(entity_item)
+
+    # construct dataframe at the entity level, include all parent columns
+    entities_df = pd.json_normalize(entities, record_path="entities", 
+                                  meta=list(sentiment_df.columns))
+
+    # rename columns
+    entities_df.rename(columns={
+        'text': 'entity_text',
+        'category': 'entity_category',
+        'subCategory': 'entity_subCategory',
+        'confidenceScore': 'confidenceScores.entity'
+    }, inplace=True)
+
+    # filter output columns
+    entities_df = entities_df[['place_id', 'name', 'author_name', 'rating', 
+                             'sentence_text', 'sentence_sentiment', 
+                             'confidenceScores.positive', 'confidenceScores.neutral', 
+                             'confidenceScores.negative', 'entity_text', 
+                             'entity_category', 'entity_subCategory', 
+                             'confidenceScores.entity']]
+
+    # save to cache, return dataframe
+    entities_df.to_csv(CACHE_ENTITIES_FILE, index=False, header=True)
+    return entities_df
 
 
 if __name__ == '__main__':
-    # helpful for debugging as you can view your dataframes and json outputs
-    import streamlit as st 
-    st.write("What do you want to debug?")
+    import streamlit as st  # helpful for debugging as you can view your dataframes and json outputs
+
+    reviews_step(PLACE_IDS_SOURCE_FILE)
+    sentiment_step(CACHE_REVIEWS_FILE)
+    entities_df = entity_extraction_step(CACHE_SENTIMENT_FILE)
+    st.write(entities_df)

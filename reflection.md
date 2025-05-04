@@ -23,3 +23,10 @@ Examples:
 
 `--- Reflection Below This Line ---`
 
+# This assignment was tough for me. Even though the final tests showed a pass, I know my code didn't completely work right. When I ran the individual tests, some of them failed with errors, which was frustrating. I think I got the basic structure of the pipeline working - the three steps that pass data from one part to the next - but some of the details didn't work properly.
+
+# The API calls were especially tricky. Sometimes they worked, but other times they would fail or give me data I didn't expect. I tried using the debugging tips like adding print statements and checking values at each step, but I still couldn't fix all the problems. The part where we had to extract important words from the reviews was particularly confusing - my code would run but wouldn't always find all the words it should have.
+
+# I'm not sure why the overall test passed when some parts clearly didn't work. Maybe the grading system was only checking certain things? I wish I had more time to figure out why those tests were failing. The automatic grading was helpful but also a bit confusing since it didn't match what I was seeing when I ran the tests myself.
+
+# Even though I struggled, I did learn some important things about working with APIs and building multi-step systems. Next time, I'll start earlier so I have more time to fix errors, and I'll ask for help when I get stuck instead of waiting until the last minute.
