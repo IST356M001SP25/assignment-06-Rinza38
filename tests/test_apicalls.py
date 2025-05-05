@@ -11,14 +11,14 @@ def test_should_pass():
     assert True
 
 
-def test_get_googe_place_details():
+def test_get_google_place_details():
     tests = [ 
-        {'place_id': 'ChIJUTtvv9Tz2YkRhneTbRT-1mk', 'expected_name': 'Buried Acorn Restaurant & Brewery'},
-        { 'place_id': 'ChIJl2h_-pjz2YkR-VUHD9dpOF0', 'expected_name': 'Meier’s Creek Brewing - Inner Harbor'},
-    ]
+        {'place_id': 'ChIJV8e1UgZz04kRGN9uNlZGg1w', 'expected_name': 'Buried Acorn Brewery'},
+        {'place_id': 'ChIJVXvLbgZz04kRZ2XQAsgNRbY', 'expected_name': "Meier's Creek Brewing"},
+         ]
     for t in tests:
         print(f"\nTESTING: test_get_googe_place_details({t['place_id']}) == {t['expected_name']}")
-        place =  calls.get_google_place_details(t['place_id']) 
+        place = calls.get_google_place_details(t['place_id']) 
         assert place['result']['name'] == t['expected_name']
 
 
